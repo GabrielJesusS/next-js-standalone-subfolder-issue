@@ -1,0 +1,18 @@
+{
+  "name": "next-standalone-cachehandler-repro",
+  "private": true,
+  "description": "Minimal reproduction: custom cacheHandler not found by the standalone server when the app is built from a subfolder (Next >= 15.4.2-canary.15)",
+  "scripts": {
+    "build": "next build web",
+    "start": "next start web -p 3100",
+    "start:standalone": "sh scripts/start-standalone.sh",
+    "check": "sh scripts/check.sh",
+    "matrix": "sh scripts/matrix.sh",
+    "fix": "node scripts/apply-fix.js"
+  },
+  "dependencies": {
+    "next": "16.4.3",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  }
+}
