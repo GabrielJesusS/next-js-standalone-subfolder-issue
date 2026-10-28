@@ -12,7 +12,7 @@ code: 'ERR_MODULE_NOT_FOUND'
 
 The handler exists at `web/.next/standalone/web/cache-handler.js`. Next looks for it one folder
 too high: one level per segment of the subfolder (`web`), so two levels for an app in
-`source/presentation`.
+`apps/site`.
 
 - **Introduced in:** `15.4.2-canary.15` (first stable release: **15.5.0**), by
   [#81944 "Remove extra base-server code"](https://github.com/vercel/next.js/pull/81944).
