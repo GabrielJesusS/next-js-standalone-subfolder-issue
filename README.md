@@ -77,6 +77,7 @@ npm ci           # restores the original Next files
 | `scripts/check.sh` | Optional version install, build, start, request both pages, print `PASS`/`FAIL` (exit 0/1) |
 | `scripts/matrix.sh` | Runs `check.sh` for a list of versions and prints a summary |
 | `scripts/apply-fix.js` | Opt-in: patches the one-character fix into `node_modules/next` to prove the cause |
+| `scripts/bisect-versions.mjs` | Finds the first published release containing the buggy line, from the npm CDN (no install) |
 
 The bug needs all three conditions together: the app built from a subfolder, a custom
 `cacheHandler`, and the standalone `server.js`.
@@ -113,6 +114,42 @@ The same expression appears 5 times in `route-module.ts`. In the published packa
 
 Before 15.4.2-canary.15 only `next-server` loaded the cache handler, from an absolute `distDir`
 (`path.join(this.dir, distDir)`), so the subfolder layout worked.
+
+## How the introducing version was found
+
+1. **Narrow down by minor release.** The buggy expression is absent from
+   `dist/server/route-modules/route-module.js` in 15.0.0 through 15.4.11 and present from 15.5.0
+   on (checked in the published packages).
+2. **Bisect the canaries.** `scripts/bisect-versions.mjs` reads `route-module.js` from the npm CDN
+   for each of the 183 canaries published between 15.4.0 and 15.5.0 (`15.4.x-canary.N`), in
+   publish order, and bisects them. It needs no install or build:
+
+   ```bash
+   node scripts/bisect-versions.mjs
+   # last without the bug: 15.4.2-canary.14
+   # first with the bug:   15.4.2-canary.15 (published 2025-07-23T23:34:52.092Z)
+   ```
+
+   Pass a regex to search another range, e.g. `node scripts/bisect-versions.mjs '^15\.5\.\d+$'`.
+3. **Confirm at runtime.** The reproduction passes on `15.4.2-canary.14` and fails on
+   `15.4.2-canary.15` (see [Results](#results); `npm run matrix -- 15.4.2-canary.14 15.4.2-canary.15`).
+4. **Attribute the PR.** The
+   [15.4.2-canary.15 release notes](https://github.com/vercel/next.js/releases/tag/v15.4.2-canary.15)
+   list 15 merged PRs. Only [#81944](https://github.com/vercel/next.js/pull/81944)
+   ("Remove extra base-server code", merged 2025-07-23) touches this code: its diff adds the
+   failing line to `packages/next/src/server/route-modules/route-module.ts`,
+
+   ```diff
+   +        getRequestMeta(req, 'relativeProjectDir') || this.relativeProjectDir
+   ```
+
+   together with `relativeProjectDir: process.env.__NEXT_RELATIVE_PROJECT_DIR || ''` in the
+   build templates (`app-page.ts`, `app-route.ts`, `pages.ts`, `pages-api.ts`), which is where the
+   build-time `"web"` comes from.
+
+**Limit:** published canaries are the finest granularity available without building Next.
+The attribution to #81944 within canary.15 rests on its diff adding the failing code, not on
+building Next from source at the commits immediately before and after it.
 
 ## Results
 
